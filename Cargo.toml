@@ -1,0 +1,7 @@
+[package]
+name = "n0-snafu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+snafu = { version = "0.8.5", features = ["rust_1_61", "rust_1_81", "std"] }
