@@ -148,6 +148,12 @@ impl<E> From<Result<(), E>> for Report<E> {
     }
 }
 
+impl<E> From<E> for Report<E> {
+    fn from(e: E) -> Self {
+        Report::from_error(e)
+    }
+}
+
 impl<E> fmt::Debug for Report<E>
 where
     E: Formatted,
@@ -188,17 +194,6 @@ where
 
 struct ReportFormatter<'a>(&'a dyn Formatted);
 
-pub trait Formatted: snafu::Error + snafu::AsErrorSource {
-    /// Returns a [`Backtrace`][] that may be printed.
-    fn backtrace(&self) -> Option<&Backtrace>;
-}
-
-impl<T: snafu::Error + snafu::ErrorCompat + snafu::AsErrorSource> Formatted for T {
-    fn backtrace(&self) -> Option<&Backtrace> {
-        snafu::ErrorCompat::backtrace(&*self)
-    }
-}
-
 impl<'a> fmt::Display for ReportFormatter<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         eprintln!("--- display");
@@ -211,7 +206,7 @@ impl<'a> fmt::Display for ReportFormatter<'a> {
             //}
 
             if let Some(bt) = self.0.backtrace() {
-                writeln!(f, "\nBacktrace:\n{}", bt)?;
+                writeln!(f, "\nBacktrace:\n{:?}", bt)?;
             }
         }
 
