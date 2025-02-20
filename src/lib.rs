@@ -3,4 +3,6 @@
 mod once_bool;
 
 mod testerror;
-pub use self::testerror::{fmt_err, TestError, TestResult, TestResultExt};
+pub use self::testerror::{SpanTrace, TestError, TestResult, TestResultExt};
+
+pub use tracing_error::ErrorLayer;

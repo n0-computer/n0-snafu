@@ -1,5 +1,6 @@
 use color_backtrace::Verbosity;
 use snafu::GenerateImplicitData;
+use tracing_error::SpanTraceStatus;
 
 pub type TestResult<A = (), E = TestError> = std::result::Result<A, E>;
 
@@ -23,6 +24,7 @@ where
             Ok(v) => Ok(v),
             Err(error) => Err(TestError::Message {
                 message: context.as_ref().into(),
+                span_trace: GenerateImplicitData::generate(),
                 source: Box::new(error),
                 backtrace: GenerateImplicitData::generate(),
             }),
@@ -30,6 +32,7 @@ where
     }
 }
 
+// Trait safe version
 pub trait Formatted: snafu::Error {
     /// Returns a [`Backtrace`][] that may be printed.
     fn backtrace(&self) -> Option<Backtrace<'_>>;
@@ -44,15 +47,18 @@ impl<T: snafu::Error + snafu::ErrorCompat> Formatted for T {
 pub enum TestError {
     Source {
         source: Box<dyn Formatted>,
+        span_trace: SpanTrace,
         backtrace: Option<snafu::Backtrace>,
     },
     Message {
         message: String,
+        span_trace: SpanTrace,
         source: Box<dyn snafu::Error>,
         backtrace: Option<snafu::Backtrace>,
     },
     Anyhow {
         source: anyhow::Error,
+        span_trace: SpanTrace,
         backtrace: Option<snafu::Backtrace>,
     },
 }
@@ -61,52 +67,21 @@ impl<E1: Formatted + Send + Sync + 'static> From<E1> for TestError {
     fn from(value: E1) -> Self {
         Self::Source {
             source: Box::new(value),
+            span_trace: GenerateImplicitData::generate(),
             backtrace: GenerateImplicitData::generate(),
         }
     }
 }
 
-pub fn fmt_err(e: &dyn Formatted, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    writeln!(f, "{}", e)?;
-
-    if let Some(bt) = e.backtrace() {
-        // writeln!(f, "\n--------------\n{}", bt)?;
-        let s = color_backtrace::BacktracePrinter::new()
-            .format_trace_to_string(&bt)
-            .unwrap();
-        f.write_str(&s)?;
-    }
-
-    Ok(())
-}
-
 impl std::fmt::Debug for TestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // match self {
-        //     Self::Source { source, backtrace } => {
-        //         dbg!(
-        //             "source",
-        //             source,
-        //             backtrace,
-        //             source.backtrace(),
-        //             source.source()
-        //         );
-        //     }
-        //     Self::Message {
-        //         message,
-        //         source,
-        //         backtrace,
-        //     } => {
-        //         dbg!("message", message, source, backtrace);
-        //     }
-        // }
-
         let verb = Verbosity::from_env();
 
         let filters = [
             "<n0_snafu::testerror::TestError",
             "n0_snafu::testerror::TestError::anyhow",
             "<core::pin::Pin<P> as core::future::future::Future>::poll",
+            "<core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual",
         ];
 
         let mut printer =
@@ -139,17 +114,24 @@ impl std::fmt::Debug for TestError {
         for (i, (_, source)) in stack.iter().skip(1).enumerate() {
             match source {
                 Source::Root => {}
-                _ => writeln!(f, "  {}: {}", i, source)?,
+                _ => writeln!(f, "    {}: {}", i, source)?,
             }
         }
 
         writeln!(f)?;
 
+        // Span Trace
+        if self.span_trace().status() == SpanTraceStatus::CAPTURED {
+            writeln!(f, "Span trace:")?;
+            writeln!(f, "{}\n", self.span_trace())?;
+        }
+
+        // Backtrace
         let empty_bt = snafu::Backtrace::from(Vec::new());
         for (bt, _) in stack.into_iter() {
             let bt = bt.unwrap_or(Backtrace::Crate(&empty_bt));
             let s = printer.format_trace_to_string(&bt).unwrap();
-            writeln!(f, "\n{}\n", s)?;
+            writeln!(f, "\n{}", s)?;
         }
 
         Ok(())
@@ -157,9 +139,18 @@ impl std::fmt::Debug for TestError {
 }
 
 impl TestError {
+    pub fn span_trace(&self) -> &SpanTrace {
+        match self {
+            Self::Source { span_trace, .. } => span_trace,
+            Self::Message { span_trace, .. } => span_trace,
+            Self::Anyhow { span_trace, .. } => span_trace,
+        }
+    }
+
     pub fn anyhow(err: anyhow::Error) -> Self {
         Self::Anyhow {
             source: err,
+            span_trace: GenerateImplicitData::generate(),
             backtrace: GenerateImplicitData::generate(),
         }
     }
@@ -168,7 +159,9 @@ impl TestError {
         let mut traces = Vec::new();
 
         match self {
-            Self::Source { source, backtrace } => {
+            Self::Source {
+                source, backtrace, ..
+            } => {
                 // current trace
                 traces.push((backtrace.as_ref().map(Backtrace::Crate), Source::Root));
                 traces.push((source.backtrace(), Source::Formatted(source.as_ref())));
@@ -203,7 +196,9 @@ impl TestError {
                     source = s.source();
                 }
             }
-            Self::Anyhow { source, backtrace } => {
+            Self::Anyhow {
+                source, backtrace, ..
+            } => {
                 // current trace
                 traces.push((backtrace.as_ref().map(Backtrace::Crate), Source::Root));
 
@@ -285,6 +280,33 @@ impl core::fmt::Display for TestError {
             }
             Self::Anyhow { source, .. } => source.fmt(f),
         }
+    }
+}
+
+pub struct SpanTrace(tracing_error::SpanTrace);
+
+impl std::fmt::Debug for SpanTrace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl std::fmt::Display for SpanTrace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl std::ops::Deref for SpanTrace {
+    type Target = tracing_error::SpanTrace;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl snafu::GenerateImplicitData for SpanTrace {
+    fn generate() -> Self {
+        Self(tracing_error::SpanTrace::capture())
     }
 }
 
