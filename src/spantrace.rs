@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct SpanTrace(tracing_error::SpanTrace);
 
 impl std::fmt::Debug for SpanTrace {
