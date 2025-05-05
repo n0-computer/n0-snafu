@@ -6,6 +6,18 @@ use crate::SpanTrace;
 
 pub type TestResult<A = (), E = TestError> = std::result::Result<A, E>;
 
+#[macro_export]
+macro_rules! format_err {
+    ($fmt:literal$(, $($arg:expr),* $(,)?)?) => {
+        {
+            let err: $crate::TestError = ::snafu::FromString::without_source(
+                format!($fmt$(, $($arg),*)*),
+            );
+            err
+        }
+    };
+}
+
 pub trait TestResultExt<T> {
     #[track_caller]
     fn context<C>(self, context: C) -> Result<T, TestError>
@@ -497,6 +509,15 @@ mod tests {
     fn test_context_none() {
         fn fail() -> TestResult {
             None.context("sad")
+        }
+
+        assert!(fail().is_err());
+    }
+
+    #[test]
+    fn test_format_err() {
+        fn fail() -> TestResult {
+            Err(format_err!("sad: {}", 12))
         }
 
         assert!(fail().is_err());
