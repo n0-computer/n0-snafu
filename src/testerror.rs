@@ -55,6 +55,40 @@ where
     }
 }
 
+impl<T> TestResultExt<T> for Result<T, TestError> {
+    #[track_caller]
+    fn context<C>(self, context: C) -> Result<T, TestError>
+    where
+        C: AsRef<str>,
+    {
+        match self {
+            Ok(v) => Ok(v),
+            Err(error) => Err(TestError::Whatever {
+                message: context.as_ref().into(),
+                span_trace: GenerateImplicitData::generate(),
+                source: Some(Box::new(error)),
+                backtrace: GenerateImplicitData::generate(),
+            }),
+        }
+    }
+
+    #[track_caller]
+    fn with_context<F>(self, context: F) -> Result<T, TestError>
+    where
+        F: FnOnce() -> String,
+    {
+        match self {
+            Ok(v) => Ok(v),
+            Err(error) => Err(TestError::Whatever {
+                message: context(),
+                span_trace: GenerateImplicitData::generate(),
+                source: Some(Box::new(error)),
+                backtrace: GenerateImplicitData::generate(),
+            }),
+        }
+    }
+}
+
 #[derive(Debug, Snafu)]
 #[snafu(display("Expected some, found none"))]
 struct NoneError;
