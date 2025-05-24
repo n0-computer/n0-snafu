@@ -4,13 +4,13 @@ use tracing_error::SpanTraceStatus;
 
 use crate::SpanTrace;
 
-pub type TestResult<A = (), E = TestError> = std::result::Result<A, E>;
+pub type Result<A = (), E = Error> = std::result::Result<A, E>;
 
 #[macro_export]
 macro_rules! format_err {
     ($fmt:literal$(, $($arg:expr),* $(,)?)?) => {
         {
-            let err: $crate::TestError = ::snafu::FromString::without_source(
+            let err: $crate::Error = ::snafu::FromString::without_source(
                 format!($fmt$(, $($arg),*)*),
             );
             err
@@ -18,34 +18,34 @@ macro_rules! format_err {
     };
 }
 
-pub trait TestResultExt<T> {
+pub trait ResultExt<T> {
     #[track_caller]
-    fn context<C>(self, context: C) -> Result<T, TestError>
+    fn context<C>(self, context: C) -> Result<T, Error>
     where
         C: AsRef<str>;
 
     #[track_caller]
-    fn with_context<F>(self, context: F) -> Result<T, TestError>
+    fn with_context<F>(self, context: F) -> Result<T, Error>
     where
         F: FnOnce() -> String;
 
-    /// Quickly convert a std error into a `TestError`, without having to write a `context` message.
+    /// Quickly convert a std error into a `Error`, without having to write a `context` message.
     #[track_caller]
-    fn e(self) -> Result<T, TestError>;
+    fn e(self) -> Result<T, Error>;
 }
 
-impl<T, E> TestResultExt<T> for Result<T, E>
+impl<T, E> ResultExt<T> for Result<T, E>
 where
     E: snafu::Error + Sync + Send + 'static,
 {
     #[track_caller]
-    fn context<C>(self, context: C) -> Result<T, TestError>
+    fn context<C>(self, context: C) -> Result<T, Error>
     where
         C: AsRef<str>,
     {
         match self {
             Ok(v) => Ok(v),
-            Err(error) => Err(TestError::Message {
+            Err(error) => Err(Error::Message {
                 message: Some(context.as_ref().into()),
                 span_trace: GenerateImplicitData::generate(),
                 source: Box::new(error),
@@ -55,10 +55,10 @@ where
     }
 
     #[track_caller]
-    fn e(self) -> Result<T, TestError> {
+    fn e(self) -> Result<T, Error> {
         match self {
             Ok(v) => Ok(v),
-            Err(error) => Err(TestError::Message {
+            Err(error) => Err(Error::Message {
                 message: None,
                 span_trace: GenerateImplicitData::generate(),
                 source: Box::new(error),
@@ -68,13 +68,13 @@ where
     }
 
     #[track_caller]
-    fn with_context<F>(self, context: F) -> Result<T, TestError>
+    fn with_context<F>(self, context: F) -> Result<T, Error>
     where
         F: FnOnce() -> String,
     {
         match self {
             Ok(v) => Ok(v),
-            Err(error) => Err(TestError::Message {
+            Err(error) => Err(Error::Message {
                 message: Some(context()),
                 span_trace: GenerateImplicitData::generate(),
                 source: Box::new(error),
@@ -84,15 +84,15 @@ where
     }
 }
 
-impl<T> TestResultExt<T> for Result<T, TestError> {
+impl<T> ResultExt<T> for Result<T, Error> {
     #[track_caller]
-    fn context<C>(self, context: C) -> Result<T, TestError>
+    fn context<C>(self, context: C) -> Result<T, Error>
     where
         C: AsRef<str>,
     {
         match self {
             Ok(v) => Ok(v),
-            Err(error) => Err(TestError::Whatever {
+            Err(error) => Err(Error::Whatever {
                 message: Some(context.as_ref().into()),
                 span_trace: GenerateImplicitData::generate(),
                 source: Some(Box::new(error)),
@@ -102,10 +102,10 @@ impl<T> TestResultExt<T> for Result<T, TestError> {
     }
 
     #[track_caller]
-    fn e(self) -> Result<T, TestError> {
+    fn e(self) -> Result<T, Error> {
         match self {
             Ok(v) => Ok(v),
-            Err(error) => Err(TestError::Whatever {
+            Err(error) => Err(Error::Whatever {
                 message: None,
                 span_trace: GenerateImplicitData::generate(),
                 source: Some(Box::new(error)),
@@ -114,13 +114,13 @@ impl<T> TestResultExt<T> for Result<T, TestError> {
         }
     }
     #[track_caller]
-    fn with_context<F>(self, context: F) -> Result<T, TestError>
+    fn with_context<F>(self, context: F) -> Result<T, Error>
     where
         F: FnOnce() -> String,
     {
         match self {
             Ok(v) => Ok(v),
-            Err(error) => Err(TestError::Whatever {
+            Err(error) => Err(Error::Whatever {
                 message: Some(context()),
                 span_trace: GenerateImplicitData::generate(),
                 source: Some(Box::new(error)),
@@ -134,15 +134,15 @@ impl<T> TestResultExt<T> for Result<T, TestError> {
 #[snafu(display("Expected some, found none"))]
 struct NoneError;
 
-impl<T> TestResultExt<T> for Option<T> {
+impl<T> ResultExt<T> for Option<T> {
     #[track_caller]
-    fn context<C>(self, context: C) -> Result<T, TestError>
+    fn context<C>(self, context: C) -> Result<T, Error>
     where
         C: AsRef<str>,
     {
         match self {
             Some(v) => Ok(v),
-            None => Err(TestError::Message {
+            None => Err(Error::Message {
                 message: Some(context.as_ref().into()),
                 span_trace: GenerateImplicitData::generate(),
                 source: Box::new(NoneError),
@@ -152,10 +152,10 @@ impl<T> TestResultExt<T> for Option<T> {
     }
 
     #[track_caller]
-    fn e(self) -> Result<T, TestError> {
+    fn e(self) -> Result<T, Error> {
         match self {
             Some(v) => Ok(v),
-            None => Err(TestError::Message {
+            None => Err(Error::Message {
                 message: None,
                 span_trace: GenerateImplicitData::generate(),
                 source: Box::new(NoneError),
@@ -165,13 +165,13 @@ impl<T> TestResultExt<T> for Option<T> {
     }
 
     #[track_caller]
-    fn with_context<F>(self, context: F) -> Result<T, TestError>
+    fn with_context<F>(self, context: F) -> Result<T, Error>
     where
         F: FnOnce() -> String,
     {
         match self {
             Some(v) => Ok(v),
-            None => Err(TestError::Message {
+            None => Err(Error::Message {
                 message: Some(context()),
                 span_trace: GenerateImplicitData::generate(),
                 source: Box::new(NoneError),
@@ -193,7 +193,7 @@ impl<T: snafu::Error + snafu::ErrorCompat> Formatted for T {
     }
 }
 
-pub enum TestError {
+pub enum Error {
     Source {
         source: Box<dyn Formatted + Sync + Send + 'static>,
         span_trace: SpanTrace,
@@ -213,12 +213,12 @@ pub enum TestError {
     Whatever {
         message: Option<String>,
         span_trace: SpanTrace,
-        source: Option<Box<TestError>>,
+        source: Option<Box<Error>>,
         backtrace: Option<snafu::Backtrace>,
     },
 }
 
-impl<E1: Formatted + Send + Sync + 'static> From<E1> for TestError {
+impl<E1: Formatted + Send + Sync + 'static> From<E1> for Error {
     fn from(value: E1) -> Self {
         Self::Source {
             source: Box::new(value),
@@ -228,8 +228,8 @@ impl<E1: Formatted + Send + Sync + 'static> From<E1> for TestError {
     }
 }
 
-impl FromString for TestError {
-    type Source = TestError;
+impl FromString for Error {
+    type Source = Error;
 
     fn without_source(message: String) -> Self {
         Self::Whatever {
@@ -240,7 +240,7 @@ impl FromString for TestError {
         }
     }
 
-    fn with_source(source: TestError, message: String) -> Self {
+    fn with_source(source: Error, message: String) -> Self {
         Self::Whatever {
             message: Some(message),
             span_trace: GenerateImplicitData::generate(),
@@ -250,13 +250,13 @@ impl FromString for TestError {
     }
 }
 
-impl std::fmt::Debug for TestError {
+impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let verb = Verbosity::from_env();
 
         let filters = [
-            "<n0_snafu::testerror::TestError",
-            "n0_snafu::testerror::TestError::anyhow",
+            "<n0_snafu::testerror::Error",
+            "n0_snafu::testerror::Error::anyhow",
             "<core::pin::Pin<P> as core::future::future::Future>::poll",
             "<core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual",
         ];
@@ -315,7 +315,7 @@ impl std::fmt::Debug for TestError {
     }
 }
 
-impl TestError {
+impl Error {
     pub fn span_trace(&self) -> &SpanTrace {
         match self {
             Self::Source { span_trace, .. } => span_trace,
@@ -361,7 +361,7 @@ impl TestError {
                     if let Some(this) = s.downcast_ref::<&dyn Formatted>() {
                         traces.push((this.backtrace(), Source::Formatted(*this)));
                     } else {
-                        traces.push((None, Source::Error(s)));
+                        traces.push((None, Source::SnafuError(s)));
                     }
                     source = s.source();
                 }
@@ -383,7 +383,7 @@ impl TestError {
                     if let Some(this) = s.downcast_ref::<&dyn Formatted>() {
                         traces.push((this.backtrace(), Source::Formatted(*this)));
                     } else {
-                        traces.push((None, Source::Error(s)));
+                        traces.push((None, Source::SnafuError(s)));
                     }
                     source = s.source();
                 }
@@ -403,7 +403,7 @@ impl TestError {
                     if let Some(this) = s.downcast_ref::<&dyn Formatted>() {
                         traces.push((this.backtrace(), Source::Formatted(*this)));
                     } else {
-                        traces.push((None, Source::Error(s)));
+                        traces.push((None, Source::SnafuError(s)));
                     }
                 }
             }
@@ -415,7 +415,7 @@ impl TestError {
 
                 // collect the traces from our sources
                 if let Some(s) = source.as_deref() {
-                    traces.push((s.backtrace(), Source::TestError(s)));
+                    traces.push((s.backtrace(), Source::Error(s)));
                     let stack = s.stack();
                     traces.extend(stack);
                 }
@@ -448,8 +448,8 @@ impl color_backtrace::Backtrace for Backtrace<'_> {
 pub enum Source<'a> {
     Root,
     Formatted(&'a dyn Formatted),
-    Error(&'a dyn snafu::Error),
-    TestError(&'a TestError),
+    SnafuError(&'a dyn snafu::Error),
+    Error(&'a Error),
     Anyhow(&'a anyhow::Error),
 }
 
@@ -458,14 +458,14 @@ impl core::fmt::Display for Source<'_> {
         match self {
             Self::Root => write!(f, "Root"),
             Self::Formatted(e) => e.fmt(f),
-            Self::TestError(e) => e.fmt(f),
             Self::Error(e) => e.fmt(f),
+            Self::SnafuError(e) => e.fmt(f),
             Self::Anyhow(e) => e.fmt(f),
         }
     }
 }
 
-impl snafu::ErrorCompat for TestError {
+impl snafu::ErrorCompat for Error {
     fn backtrace(&self) -> Option<&snafu::Backtrace> {
         self.stack().last().and_then(|(bt, _)| match *bt {
             Some(Backtrace::Crate(bt)) => Some(bt),
@@ -474,7 +474,7 @@ impl snafu::ErrorCompat for TestError {
     }
 }
 
-impl core::fmt::Display for TestError {
+impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             Self::Source { source, .. } => {
@@ -493,7 +493,7 @@ impl core::fmt::Display for TestError {
                     write!(f, "{}", source)
                 }
                 (None, None) => {
-                    write!(f, "TestError")
+                    write!(f, "Error")
                 }
             },
             Self::Message {
@@ -517,12 +517,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_anyhow_compat() -> TestResult {
+    fn test_anyhow_compat() -> Result {
         fn ok() -> anyhow::Result<()> {
             Ok(())
         }
 
-        ok().map_err(TestError::anyhow)?;
+        ok().map_err(Error::anyhow)?;
 
         Ok(())
     }
@@ -535,7 +535,7 @@ mod tests {
 
     #[test]
     fn test_whatever() {
-        fn fail() -> TestResult {
+        fn fail() -> Result {
             snafu::whatever!("sad face");
         }
 
@@ -543,12 +543,12 @@ mod tests {
             Err(ASnafu.build())
         }
 
-        fn fail_whatever() -> TestResult {
+        fn fail_whatever() -> Result {
             snafu::whatever!(fail(), "sad");
             Ok(())
         }
 
-        fn fail_whatever_my_error() -> TestResult {
+        fn fail_whatever_my_error() -> Result {
             snafu::whatever!(fail_my_error(), "sad");
             Ok(())
         }
@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn test_context_none() {
-        fn fail() -> TestResult {
+        fn fail() -> Result {
             None.context("sad")
         }
 
@@ -570,7 +570,7 @@ mod tests {
 
     #[test]
     fn test_format_err() {
-        fn fail() -> TestResult {
+        fn fail() -> Result {
             Err(format_err!("sad: {}", 12))
         }
 
@@ -587,7 +587,7 @@ mod tests {
             Ok(())
         }
 
-        fn fail_outer() -> TestResult {
+        fn fail_outer() -> Result {
             fail_io().e()?;
             fail_custom()?;
             Ok(())
