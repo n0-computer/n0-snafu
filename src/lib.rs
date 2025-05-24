@@ -1,6 +1,6 @@
+mod error;
 mod spantrace;
-mod testerror;
 pub use tracing_error::ErrorLayer;
 
+pub use self::error::{Error, Result, ResultExt};
 pub use self::spantrace::SpanTrace;
-pub use self::testerror::{TestError, TestResult, TestResultExt};
