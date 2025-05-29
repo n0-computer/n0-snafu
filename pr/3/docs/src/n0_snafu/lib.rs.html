@@ -4,10 +4,14 @@
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
 <a href="#5" id="5">5</a>
-<a href="#6" id="6">6</a></pre></div><pre class="rust"><code><span class="kw">mod </span>spantrace;
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a></pre></div><pre class="rust"><code><span class="kw">mod </span>spantrace;
 <span class="kw">mod </span>testerror;
 <span class="kw">pub use </span>tracing_error::ErrorLayer;
 
-<span class="kw">pub use </span><span class="self">self</span>::spantrace::SpanTrace;
-<span class="kw">pub use </span><span class="self">self</span>::testerror::{TestError, TestResult, TestResultExt};
+<span class="kw">pub use </span><span class="self">self</span>::{
+    spantrace::SpanTrace,
+    testerror::{TestError, TestResult, TestResultExt},
+};
 </code></pre></div></section></main></body></html>
