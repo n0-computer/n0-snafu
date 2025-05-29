@@ -344,7 +344,7 @@
 
 <span class="kw">impl</span>&lt;T: snafu::Error + snafu::ErrorCompat&gt; Formatted <span class="kw">for </span>T {
     <span class="kw">fn </span>backtrace(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Backtrace&lt;<span class="lifetime">'_</span>&gt;&gt; {
-        snafu::ErrorCompat::backtrace(<span class="kw-2">&amp;*</span><span class="self">self</span>).map(Backtrace::Crate)
+        snafu::ErrorCompat::backtrace(<span class="self">self</span>).map(Backtrace::Crate)
     }
 }
 
