@@ -42,7 +42,7 @@ pub trait Formatted: snafu::Error {
 
 impl<T: snafu::Error + snafu::ErrorCompat> Formatted for T {
     fn backtrace(&self) -> Option<Backtrace<'_>> {
-        snafu::ErrorCompat::backtrace(&*self).map(Backtrace::Crate)
+        snafu::ErrorCompat::backtrace(self).map(Backtrace::Crate)
     }
 }
 
