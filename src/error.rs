@@ -470,23 +470,47 @@ impl snafu::ErrorCompat for Error {
     }
 }
 
+fn write_sources_if_alternate(
+    f: &mut core::fmt::Formatter,
+    mut source: Option<&dyn std::error::Error>,
+) -> core::fmt::Result {
+    if !f.alternate() {
+        return Ok(());
+    }
+    while let Some(inner) = source {
+        write!(f, ": {}", inner)?;
+        source = inner.source();
+    }
+    Ok(())
+}
+
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             Self::Source { source, .. } => {
-                write!(f, "{}", source)
+                write!(f, "{}", source)?;
+                write_sources_if_alternate(f, source.source())?;
+                Ok(())
             }
             Self::Whatever {
                 message, source, ..
             } => match (source, message) {
                 (Some(source), Some(message)) => {
-                    write!(f, "{}: {}", message, source)
+                    if f.alternate() {
+                        write!(f, "{}: {:#}", message, source)
+                    } else {
+                        write!(f, "{}: {}", message, source)
+                    }
                 }
                 (None, Some(message)) => {
                     write!(f, "{}", message)
                 }
                 (Some(source), None) => {
-                    write!(f, "{}", source)
+                    if f.alternate() {
+                        write!(f, "{:#}", source)
+                    } else {
+                        write!(f, "{}", source)
+                    }
                 }
                 (None, None) => {
                     write!(f, "Error")
@@ -496,10 +520,12 @@ impl core::fmt::Display for Error {
                 message, source, ..
             } => {
                 if let Some(message) = message {
-                    write!(f, "{}: {}", message, source)
+                    write!(f, "{}: {}", message, source)?;
                 } else {
-                    write!(f, "{}", source)
+                    write!(f, "{}", source)?;
                 }
+                write_sources_if_alternate(f, source.source())?;
+                Ok(())
             }
             Self::Anyhow { source, .. } => source.fmt(f),
         }
