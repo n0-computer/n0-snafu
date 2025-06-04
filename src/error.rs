@@ -373,11 +373,7 @@ impl Error {
                 traces.push((backtrace.as_ref().map(Backtrace::Crate), Source::Root));
 
                 // collect the traces from our sources
-                let mut source = Some(
-                    *source
-                        .downcast_ref::<&(dyn std::error::Error + 'static)>()
-                        .expect("known good"),
-                );
+                let mut source: Option<&(dyn snafu::Error + 'static)> = Some(source.as_ref());
 
                 while let Some(s) = source {
                     if let Some(this) = s.downcast_ref::<&dyn Formatted>() {
@@ -594,5 +590,31 @@ mod tests {
         }
         let err = fail_outer().unwrap_err();
         assert_eq!(err.to_string(), "sad IO");
+    }
+
+    #[test]
+    fn test_message() {
+        fn fail_box() -> Result<(), impl snafu::Error + Send + Sync + 'static> {
+            Err(Box::new(std::io::Error::other("foo")))
+        }
+
+        let my_res = fail_box().context("failed");
+
+        let err = my_res.unwrap_err();
+        let stack = err.stack();
+        assert_eq!(stack.len(), 2);
+    }
+
+    #[test]
+    fn test_option() {
+        fn fail_opt() -> Option<()> {
+            None
+        }
+
+        let my_res = fail_opt().context("failed");
+
+        let err = my_res.unwrap_err();
+        let stack = err.stack();
+        assert_eq!(stack.len(), 2);
     }
 }
