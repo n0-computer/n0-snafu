@@ -644,7 +644,14 @@
 <a href="#643" id="643">643</a>
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
 <span class="kw">use </span>snafu::{FromString, GenerateImplicitData, Snafu};
 <span class="kw">use </span>tracing_error::SpanTraceStatus;
 
@@ -1123,9 +1130,16 @@
     <span class="kw">if </span>!f.alternate() {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(());
     }
+    <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>first = <span class="bool-val">true</span>;
     <span class="kw">while let </span><span class="prelude-val">Some</span>(inner) = source {
-        <span class="macro">write!</span>(f, <span class="string">": {}"</span>, inner)<span class="question-mark">?</span>;
+        <span class="kw">if </span>first {
+            <span class="macro">write!</span>(f, <span class="string">"\n\nCaused by:"</span>)<span class="question-mark">?</span>;
+            first = <span class="bool-val">false</span>;
+        }
+        <span class="macro">write!</span>(f, <span class="string">"\n    {i}: {}"</span>, inner)<span class="question-mark">?</span>;
         source = inner.source();
+        i += <span class="number">1</span>;
     }
     <span class="prelude-val">Ok</span>(())
 }
