@@ -477,9 +477,16 @@ fn write_sources_if_alternate(
     if !f.alternate() {
         return Ok(());
     }
+    let mut i = 0;
+    let mut first = true;
     while let Some(inner) = source {
-        write!(f, ": {}", inner)?;
+        if first {
+            write!(f, "\n\nCaused by:")?;
+            first = false;
+        }
+        write!(f, "\n    {i}: {}", inner)?;
         source = inner.source();
+        i += 1;
     }
     Ok(())
 }
