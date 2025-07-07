@@ -718,7 +718,12 @@
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
 <a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
 <span class="kw">use </span>snafu::{FromString, GenerateImplicitData, Snafu};
 <span class="kw">use </span>tracing_error::SpanTraceStatus;
 
@@ -1008,13 +1013,7 @@
         <span class="kw">let </span>stack = <span class="self">self</span>.stack();
 
         <span class="macro">writeln!</span>(f)<span class="question-mark">?</span>;
-        <span class="kw">for </span>(i, (<span class="kw">_</span>, source)) <span class="kw">in </span>stack.iter().skip(<span class="number">1</span>).enumerate() {
-            <span class="kw">match </span>source {
-                Source::Root =&gt; {}
-                <span class="kw">_ </span>=&gt; <span class="macro">writeln!</span>(f, <span class="string">"    {}: {}"</span>, i, source)<span class="question-mark">?</span>,
-            }
-        }
-
+        <span class="macro">write!</span>(f, <span class="string">"{self:#}"</span>)<span class="question-mark">?</span>;
         <span class="macro">writeln!</span>(f)<span class="question-mark">?</span>;
 
         <span class="comment">// Span Trace
@@ -1241,21 +1240,29 @@
     f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter,
     source: <span class="prelude-ty">Option</span>&lt;SourceWrapper&lt;<span class="lifetime">'_</span>&gt;&gt;,
 ) -&gt; core::fmt::Result {
-    write_sources_if_alternate_inner(f, source, <span class="number">0</span>)<span class="question-mark">?</span>;
+    <span class="kw">if </span>!f.alternate() {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+    }
+    write_sources(f, source)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">fn </span>write_sources_if_alternate_inner(
+<span class="kw">fn </span>write_sources(
+    f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter,
+    source: <span class="prelude-ty">Option</span>&lt;SourceWrapper&lt;<span class="lifetime">'_</span>&gt;&gt;,
+) -&gt; core::fmt::Result {
+    write_sources_inner(f, source, <span class="number">0</span>)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">fn </span>write_sources_inner(
     f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter,
     source: <span class="prelude-ty">Option</span>&lt;SourceWrapper&lt;<span class="lifetime">'_</span>&gt;&gt;,
     i: usize,
 ) -&gt; core::fmt::Result {
-    <span class="kw">if </span>!f.alternate() {
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-    }
     <span class="kw">if let </span><span class="prelude-val">Some</span>(current) = source {
         <span class="macro">write!</span>(f, <span class="string">"\n  {i}: {}"</span>, current)<span class="question-mark">?</span>;
-        write_sources_if_alternate_inner(f, current.source(), i + <span class="number">1</span>)<span class="question-mark">?</span>;
+        write_sources_inner(f, current.source(), i + <span class="number">1</span>)<span class="question-mark">?</span>;
     }
     <span class="prelude-val">Ok</span>(())
 }
@@ -1425,17 +1432,20 @@
 
         <span class="kw">let </span>err = res.err().unwrap();
         <span class="kw">let </span>fmt = <span class="macro">format!</span>(<span class="string">"{err}"</span>);
-        <span class="macro">println!</span>(<span class="string">"short:\n{fmt}"</span>);
+        <span class="macro">println!</span>(<span class="string">"short:\n{fmt}\n"</span>);
         <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>fmt, <span class="string">"read error: failed to read foo.txt: file not found"</span>);
 
         <span class="kw">let </span>fmt = <span class="macro">format!</span>(<span class="string">"{err:#}"</span>);
-        <span class="macro">println!</span>(<span class="string">"alternate:\n{fmt}"</span>);
+        <span class="macro">println!</span>(<span class="string">"alternate:\n{fmt}\n"</span>);
         <span class="macro">assert_eq!</span>(
             <span class="kw-2">&amp;</span>fmt,
             <span class="string">r#"Error: read error
   0: failed to read foo.txt
   1: file not found"#
         </span>);
+
+        <span class="kw">let </span>fmt = <span class="macro">format!</span>(<span class="string">"{err:?}"</span>);
+        <span class="macro">println!</span>(<span class="string">"debug:\n{fmt}\n"</span>);
     }
 }
 </code></pre></div></section></main></body></html>
