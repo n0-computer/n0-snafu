@@ -288,13 +288,7 @@ impl std::fmt::Debug for Error {
         let stack = self.stack();
 
         writeln!(f)?;
-        for (i, (_, source)) in stack.iter().skip(1).enumerate() {
-            match source {
-                Source::Root => {}
-                _ => writeln!(f, "    {}: {}", i, source)?,
-            }
-        }
-
+        write!(f, "{self:#}")?;
         writeln!(f)?;
 
         // Span Trace
@@ -521,21 +515,29 @@ fn write_sources_if_alternate(
     f: &mut core::fmt::Formatter,
     source: Option<SourceWrapper<'_>>,
 ) -> core::fmt::Result {
-    write_sources_if_alternate_inner(f, source, 0)?;
+    if !f.alternate() {
+        return Ok(());
+    }
+    write_sources(f, source)?;
     Ok(())
 }
 
-fn write_sources_if_alternate_inner(
+fn write_sources(
+    f: &mut core::fmt::Formatter,
+    source: Option<SourceWrapper<'_>>,
+) -> core::fmt::Result {
+    write_sources_inner(f, source, 0)?;
+    Ok(())
+}
+
+fn write_sources_inner(
     f: &mut core::fmt::Formatter,
     source: Option<SourceWrapper<'_>>,
     i: usize,
 ) -> core::fmt::Result {
-    if !f.alternate() {
-        return Ok(());
-    }
     if let Some(current) = source {
         write!(f, "\n  {i}: {}", current)?;
-        write_sources_if_alternate_inner(f, current.source(), i + 1)?;
+        write_sources_inner(f, current.source(), i + 1)?;
     }
     Ok(())
 }
@@ -705,16 +707,19 @@ mod tests {
 
         let err = res.err().unwrap();
         let fmt = format!("{err}");
-        println!("short:\n{fmt}");
+        println!("short:\n{fmt}\n");
         assert_eq!(&fmt, "read error: failed to read foo.txt: file not found");
 
         let fmt = format!("{err:#}");
-        println!("alternate:\n{fmt}");
+        println!("alternate:\n{fmt}\n");
         assert_eq!(
             &fmt,
             r#"Error: read error
   0: failed to read foo.txt
   1: file not found"#
         );
+
+        let fmt = format!("{err:?}");
+        println!("debug:\n{fmt}\n");
     }
 }
