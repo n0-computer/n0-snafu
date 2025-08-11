@@ -343,7 +343,7 @@ impl Error {
         }
     }
 
-    pub fn stack(&self) -> Vec<(Option<Backtrace>, Source<'_>)> {
+    pub fn stack(&self) -> Vec<(Option<Backtrace<'_>>, Source<'_>)> {
         let mut traces = Vec::new();
 
         match self {
