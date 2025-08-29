@@ -288,13 +288,7 @@ impl std::fmt::Debug for Error {
         let stack = self.stack();
 
         writeln!(f)?;
-        for (i, (_, source)) in stack.iter().skip(1).enumerate() {
-            match source {
-                Source::Root => {}
-                _ => writeln!(f, "    {}: {}", i, source)?,
-            }
-        }
-
+        write!(f, "{self:#}")?;
         writeln!(f)?;
 
         // Span Trace
@@ -308,7 +302,7 @@ impl std::fmt::Debug for Error {
         for (bt, _) in stack.into_iter() {
             let bt = bt.unwrap_or(Backtrace::Crate(&empty_bt));
             let s = printer.format_trace_to_string(&bt).unwrap();
-            writeln!(f, "\n{}", s)?;
+            writeln!(f, "\n{s}")?;
         }
 
         Ok(())
@@ -470,39 +464,126 @@ impl snafu::ErrorCompat for Error {
     }
 }
 
+trait ErrorSource<'a>: std::fmt::Display + std::fmt::Debug {
+    fn source(&'a self) -> Option<SourceWrapper<'a>>;
+}
+
+impl<'a> ErrorSource<'a> for Error {
+    fn source(&'a self) -> Option<SourceWrapper<'a>> {
+        match self {
+            Error::Source { source, .. } => source.source().map(SourceWrapper::Std),
+            Error::Anyhow { source, .. } => source.source().map(SourceWrapper::Std),
+            Error::Message { ref source, .. } => Some(SourceWrapper::Box(source)),
+            Error::Whatever { ref source, .. } => source.as_ref().map(|s| SourceWrapper::Crate(s)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum SourceWrapper<'a> {
+    Std(&'a dyn std::error::Error),
+    #[allow(clippy::borrowed_box)]
+    Box(&'a Box<dyn snafu::Error + Sync + Send + 'static>),
+    Crate(&'a Error),
+}
+
+impl<'a> std::fmt::Display for SourceWrapper<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SourceWrapper::Std(error) => write!(f, "{error}"),
+            SourceWrapper::Crate(error) => match error {
+                Error::Message { message, .. } => {
+                    write!(f, "{}", message.as_deref().unwrap_or("Error"))
+                }
+                _ => write!(f, "{error}"),
+            },
+            SourceWrapper::Box(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl<'a> ErrorSource<'a> for SourceWrapper<'a> {
+    fn source(&'a self) -> Option<SourceWrapper<'a>> {
+        match self {
+            SourceWrapper::Std(error) => std::error::Error::source(error).map(SourceWrapper::Std),
+            SourceWrapper::Crate(error) => error.source(),
+            SourceWrapper::Box(error) => error.source().map(SourceWrapper::Std),
+        }
+    }
+}
+
+fn write_sources_if_alternate(
+    f: &mut core::fmt::Formatter,
+    source: Option<SourceWrapper<'_>>,
+) -> core::fmt::Result {
+    if !f.alternate() {
+        return Ok(());
+    }
+    write_sources(f, source)?;
+    Ok(())
+}
+
+fn write_sources(
+    f: &mut core::fmt::Formatter,
+    source: Option<SourceWrapper<'_>>,
+) -> core::fmt::Result {
+    write_sources_inner(f, source, 0)?;
+    Ok(())
+}
+
+fn write_sources_inner(
+    f: &mut core::fmt::Formatter,
+    source: Option<SourceWrapper<'_>>,
+    i: usize,
+) -> core::fmt::Result {
+    if let Some(current) = source {
+        write!(f, "\n  {i}: {current}")?;
+        write_sources_inner(f, current.source(), i + 1)?;
+    }
+    Ok(())
+}
+
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        if f.alternate() {
+            write!(f, "Error: ")?;
+        }
         match self {
             Self::Source { source, .. } => {
-                write!(f, "{}", source)
+                write!(f, "{source}")?;
             }
             Self::Whatever {
                 message, source, ..
             } => match (source, message) {
                 (Some(source), Some(message)) => {
-                    write!(f, "{}: {}", message, source)
+                    if f.alternate() {
+                        write!(f, "{message}")?;
+                    } else {
+                        write!(f, "{message}: {source}")?;
+                    }
                 }
                 (None, Some(message)) => {
-                    write!(f, "{}", message)
+                    write!(f, "{message}")?;
                 }
                 (Some(source), None) => {
-                    write!(f, "{}", source)
+                    write!(f, "{source}")?;
                 }
                 (None, None) => {
-                    write!(f, "Error")
+                    write!(f, "Error")?;
                 }
             },
             Self::Message {
                 message, source, ..
             } => {
                 if let Some(message) = message {
-                    write!(f, "{}: {}", message, source)
+                    write!(f, "{message}: {source}")?;
                 } else {
-                    write!(f, "{}", source)
+                    write!(f, "{source}")?;
                 }
             }
-            Self::Anyhow { source, .. } => source.fmt(f),
+            Self::Anyhow { source, .. } => source.fmt(f)?,
         }
+        write_sources_if_alternate(f, self.source())
     }
 }
 
@@ -616,5 +697,30 @@ mod tests {
         let err = my_res.unwrap_err();
         let stack = err.stack();
         assert_eq!(stack.len(), 2);
+    }
+
+    #[test]
+    fn test_sources() {
+        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let file_name = "foo.txt";
+        let res: Result<(), _> = Err(err).with_context(|| format!("failed to read {file_name}"));
+        let res: Result<(), _> = res.context("read error");
+
+        let err = res.err().unwrap();
+        let fmt = format!("{err}");
+        println!("short:\n{fmt}\n");
+        assert_eq!(&fmt, "read error: failed to read foo.txt: file not found");
+
+        let fmt = format!("{err:#}");
+        println!("alternate:\n{fmt}\n");
+        assert_eq!(
+            &fmt,
+            r#"Error: read error
+  0: failed to read foo.txt
+  1: file not found"#
+        );
+
+        let fmt = format!("{err:?}");
+        println!("debug:\n{fmt}\n");
     }
 }
