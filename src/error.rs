@@ -302,7 +302,7 @@ impl std::fmt::Debug for Error {
         for (bt, _) in stack.into_iter() {
             let bt = bt.unwrap_or(Backtrace::Crate(&empty_bt));
             let s = printer.format_trace_to_string(&bt).unwrap();
-            writeln!(f, "\n{}", s)?;
+            writeln!(f, "\n{s}")?;
         }
 
         Ok(())
@@ -337,7 +337,7 @@ impl Error {
         }
     }
 
-    pub fn stack(&self) -> Vec<(Option<Backtrace>, Source<'_>)> {
+    pub fn stack(&self) -> Vec<(Option<Backtrace<'_>>, Source<'_>)> {
         let mut traces = Vec::new();
 
         match self {
@@ -482,6 +482,7 @@ impl<'a> ErrorSource<'a> for Error {
 #[derive(Debug, Clone, Copy)]
 enum SourceWrapper<'a> {
     Std(&'a dyn std::error::Error),
+    #[allow(clippy::borrowed_box)]
     Box(&'a Box<dyn snafu::Error + Sync + Send + 'static>),
     Crate(&'a Error),
 }
@@ -536,7 +537,7 @@ fn write_sources_inner(
     i: usize,
 ) -> core::fmt::Result {
     if let Some(current) = source {
-        write!(f, "\n  {i}: {}", current)?;
+        write!(f, "\n  {i}: {current}")?;
         write_sources_inner(f, current.source(), i + 1)?;
     }
     Ok(())
@@ -575,9 +576,9 @@ impl core::fmt::Display for Error {
                 message, source, ..
             } => {
                 if let Some(message) = message {
-                    write!(f, "{}: {}", message, source)?;
+                    write!(f, "{message}: {source}")?;
                 } else {
-                    write!(f, "{}", source)?;
+                    write!(f, "{source}")?;
                 }
             }
             Self::Anyhow { source, .. } => source.fmt(f)?,
