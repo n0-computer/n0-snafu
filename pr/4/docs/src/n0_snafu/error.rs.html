@@ -723,7 +723,8 @@
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
 <span class="kw">use </span>snafu::{FromString, GenerateImplicitData, Snafu};
 <span class="kw">use </span>tracing_error::SpanTraceStatus;
 
@@ -1027,7 +1028,7 @@
         <span class="kw">for </span>(bt, <span class="kw">_</span>) <span class="kw">in </span>stack.into_iter() {
             <span class="kw">let </span>bt = bt.unwrap_or(Backtrace::Crate(<span class="kw-2">&amp;</span>empty_bt));
             <span class="kw">let </span>s = printer.format_trace_to_string(<span class="kw-2">&amp;</span>bt).unwrap();
-            <span class="macro">writeln!</span>(f, <span class="string">"\n{}"</span>, s)<span class="question-mark">?</span>;
+            <span class="macro">writeln!</span>(f, <span class="string">"\n{s}"</span>)<span class="question-mark">?</span>;
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -1062,7 +1063,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>stack(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(<span class="prelude-ty">Option</span>&lt;Backtrace&gt;, Source&lt;<span class="lifetime">'_</span>&gt;)&gt; {
+    <span class="kw">pub fn </span>stack(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(<span class="prelude-ty">Option</span>&lt;Backtrace&lt;<span class="lifetime">'_</span>&gt;&gt;, Source&lt;<span class="lifetime">'_</span>&gt;)&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>traces = Vec::new();
 
         <span class="kw">match </span><span class="self">self </span>{
@@ -1207,7 +1208,8 @@
 <span class="attr">#[derive(Debug, Clone, Copy)]
 </span><span class="kw">enum </span>SourceWrapper&lt;<span class="lifetime">'a</span>&gt; {
     Std(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>std::error::Error),
-    Box(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Box&lt;<span class="kw">dyn </span>snafu::Error + Sync + Send + <span class="lifetime">'static</span>&gt;),
+    <span class="attr">#[allow(clippy::borrowed_box)]
+    </span>Box(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Box&lt;<span class="kw">dyn </span>snafu::Error + Sync + Send + <span class="lifetime">'static</span>&gt;),
     Crate(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Error),
 }
 
@@ -1261,7 +1263,7 @@
     i: usize,
 ) -&gt; core::fmt::Result {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(current) = source {
-        <span class="macro">write!</span>(f, <span class="string">"\n  {i}: {}"</span>, current)<span class="question-mark">?</span>;
+        <span class="macro">write!</span>(f, <span class="string">"\n  {i}: {current}"</span>)<span class="question-mark">?</span>;
         write_sources_inner(f, current.source(), i + <span class="number">1</span>)<span class="question-mark">?</span>;
     }
     <span class="prelude-val">Ok</span>(())
@@ -1300,9 +1302,9 @@
                 message, source, ..
             } =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(message) = message {
-                    <span class="macro">write!</span>(f, <span class="string">"{}: {}"</span>, message, source)<span class="question-mark">?</span>;
+                    <span class="macro">write!</span>(f, <span class="string">"{message}: {source}"</span>)<span class="question-mark">?</span>;
                 } <span class="kw">else </span>{
-                    <span class="macro">write!</span>(f, <span class="string">"{}"</span>, source)<span class="question-mark">?</span>;
+                    <span class="macro">write!</span>(f, <span class="string">"{source}"</span>)<span class="question-mark">?</span>;
                 }
             }
             <span class="self">Self</span>::Anyhow { source, .. } =&gt; source.fmt(f)<span class="question-mark">?</span>,
