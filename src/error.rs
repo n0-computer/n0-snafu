@@ -298,13 +298,12 @@ impl std::fmt::Debug for Error {
         }
 
         // Backtrace
-        let empty_bt = snafu::Backtrace::from(Vec::new());
-        for (bt, _) in stack.into_iter() {
-            let bt = bt.unwrap_or(Backtrace::Crate(&empty_bt));
-            let s = printer.format_trace_to_string(&bt).unwrap();
-            writeln!(f, "\n{s}")?;
+        for (bt, _source) in stack.into_iter() {
+            if let Some(bt) = bt {
+                let s = printer.format_trace_to_string(&bt).unwrap();
+                writeln!(f, "\n{s}")?;
+            }
         }
-
         Ok(())
     }
 }
@@ -339,7 +338,6 @@ impl Error {
 
     pub fn stack(&self) -> Vec<(Option<Backtrace<'_>>, Source<'_>)> {
         let mut traces = Vec::new();
-
         match self {
             Self::Source {
                 source, backtrace, ..
@@ -406,17 +404,71 @@ impl Error {
                 // collect the traces from our sources
                 if let Some(s) = source.as_deref() {
                     traces.push((s.backtrace(), Source::Error(s)));
-                    let stack = s.stack();
-                    traces.extend(stack);
+                    s.stack_inner(&mut traces);
                 }
             }
         }
 
         traces
     }
+
+    fn stack_inner<'a>(&'a self, traces: &mut Vec<(Option<Backtrace<'a>>, Source<'a>)>) {
+        match self {
+            Self::Source { source, .. } => {
+                traces.push((source.backtrace(), Source::Formatted(source.as_ref())));
+
+                // collect the traces from our sources
+                let mut source = source.source();
+
+                while let Some(s) = source {
+                    if let Some(this) = s.downcast_ref::<&dyn Formatted>() {
+                        traces.push((this.backtrace(), Source::Formatted(*this)));
+                    } else {
+                        traces.push((None, Source::SnafuError(s)));
+                    }
+                    source = s.source();
+                }
+            }
+            Self::Message { source, .. } => {
+                // collect the traces from our sources
+                let mut source: Option<&(dyn snafu::Error + 'static)> = Some(source.as_ref());
+
+                while let Some(s) = source {
+                    if let Some(this) = s.downcast_ref::<&dyn Formatted>() {
+                        traces.push((this.backtrace(), Source::Formatted(*this)));
+                    } else {
+                        traces.push((None, Source::SnafuError(s)));
+                    }
+                    source = s.source();
+                }
+            }
+            Self::Anyhow { source, .. } => {
+                traces.push((
+                    Some(Backtrace::Std(source.backtrace())),
+                    Source::Anyhow(source),
+                ));
+
+                for s in source.chain().skip(1) {
+                    if let Some(this) = s.downcast_ref::<&dyn Formatted>() {
+                        traces.push((this.backtrace(), Source::Formatted(*this)));
+                    } else {
+                        traces.push((None, Source::SnafuError(s)));
+                    }
+                }
+            }
+            Self::Whatever { source, .. } => {
+                // collect the traces from our sources
+                if let Some(s) = source.as_deref() {
+                    traces.push((s.backtrace(), Source::Error(s)));
+                    let stack = s.stack();
+                    traces.extend(stack);
+                }
+            }
+        }
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Backtrace<'a> {
     Crate(&'a snafu::Backtrace),
     Std(&'a std::backtrace::Backtrace),
@@ -707,6 +759,7 @@ mod tests {
         let res: Result<(), _> = res.context("read error");
 
         let err = res.err().unwrap();
+
         let fmt = format!("{err}");
         println!("short:\n{fmt}\n");
         assert_eq!(&fmt, "read error: failed to read foo.txt: file not found");

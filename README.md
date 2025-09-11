@@ -3,6 +3,12 @@
 > Helpers to better work with [`snafu`](https://docs.rs/snafu) based errors.
 
 
+## Backtrace printing
+
+- Default: only error information
+- `RUST_BACKTRACE=1` => library only backtraces
+- `RUST_LIB_BACKTRACE=1 RUST_BACKTRACE=full` => library & std library backtraces
+
 
 ## License
 
