@@ -777,7 +777,11 @@
 <a href="#776" id="776">776</a>
 <a href="#777" id="777">777</a>
 <a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
 <span class="kw">use </span>snafu::{FromString, GenerateImplicitData, Snafu};
 <span class="kw">use </span>tracing_error::SpanTraceStatus;
 
@@ -1066,9 +1070,7 @@
 
         <span class="kw">let </span>stack = <span class="self">self</span>.stack();
 
-        <span class="macro">writeln!</span>(f)<span class="question-mark">?</span>;
         <span class="macro">write!</span>(f, <span class="string">"{self:#}"</span>)<span class="question-mark">?</span>;
-        <span class="macro">writeln!</span>(f)<span class="question-mark">?</span>;
 
         <span class="comment">// Span Trace
         </span><span class="kw">if </span><span class="self">self</span>.span_trace().status() == SpanTraceStatus::CAPTURED {
@@ -1376,9 +1378,6 @@
 
 <span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>Error {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
-        <span class="kw">if </span>f.alternate() {
-            <span class="macro">write!</span>(f, <span class="string">"Error: "</span>)<span class="question-mark">?</span>;
-        }
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Source { source, .. } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"{source}"</span>)<span class="question-mark">?</span>;
@@ -1462,9 +1461,18 @@
         }
 
         <span class="macro">assert!</span>(fail().is_err());
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, fail().unwrap_err()), <span class="string">"sad face"</span>);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{}"</span>, fail().unwrap_err()), <span class="string">"sad face"</span>);
         <span class="macro">assert!</span>(fail_my_error().is_err());
         <span class="macro">assert!</span>(fail_whatever().is_err());
         <span class="macro">assert!</span>(fail_whatever_my_error().is_err());
+
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">format!</span>(<span class="string">"{:?}"</span>, fail_whatever().unwrap_err()),
+            <span class="string">"sad\n  0: sad face"
+        </span>);
+
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, fail_whatever()), <span class="string">"Err(sad\n  0: sad face)"</span>);
     }
 
     <span class="attr">#[test]
@@ -1547,7 +1555,7 @@
         <span class="macro">println!</span>(<span class="string">"alternate:\n{fmt}\n"</span>);
         <span class="macro">assert_eq!</span>(
             <span class="kw-2">&amp;</span>fmt,
-            <span class="string">r#"Error: read error
+            <span class="string">r#"read error
   0: failed to read foo.txt
   1: file not found"#
         </span>);
