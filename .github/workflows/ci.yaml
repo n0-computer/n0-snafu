@@ -15,7 +15,7 @@ concurrency:
 env:
   RUSTFLAGS: -Dwarnings
   RUSTDOCFLAGS: -Dwarnings
-  MSRV: "1.81"
+  MSRV: "1.83"
   SCCACHE_CACHE_SIZE: "50G"
   IROH_FORCE_STAGING_RELAYS: "1"
 

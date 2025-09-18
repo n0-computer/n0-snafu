@@ -9,7 +9,7 @@ authors = ["n0 team"]
 repository = "https://github.com/n0-computer/n0-snafu"
 keywords = ["errors", "snafu"]
 
-rust-version = "1.81"
+rust-version = "1.83"
 
 [dependencies]
 anyhow = { version = "1.0.96", features = ["backtrace"] }
