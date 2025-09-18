@@ -287,9 +287,7 @@ impl std::fmt::Debug for Error {
 
         let stack = self.stack();
 
-        writeln!(f)?;
         write!(f, "{self:#}")?;
-        writeln!(f)?;
 
         // Span Trace
         if self.span_trace().status() == SpanTraceStatus::CAPTURED {
@@ -597,9 +595,6 @@ fn write_sources_inner(
 
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        if f.alternate() {
-            write!(f, "Error: ")?;
-        }
         match self {
             Self::Source { source, .. } => {
                 write!(f, "{source}")?;
@@ -683,9 +678,18 @@ mod tests {
         }
 
         assert!(fail().is_err());
+        assert_eq!(format!("{:?}", fail().unwrap_err()), "sad face");
+        assert_eq!(format!("{}", fail().unwrap_err()), "sad face");
         assert!(fail_my_error().is_err());
         assert!(fail_whatever().is_err());
         assert!(fail_whatever_my_error().is_err());
+
+        assert_eq!(
+            format!("{:?}", fail_whatever().unwrap_err()),
+            "sad\n  0: sad face"
+        );
+
+        assert_eq!(format!("{:?}", fail_whatever()), "Err(sad\n  0: sad face)");
     }
 
     #[test]
@@ -768,7 +772,7 @@ mod tests {
         println!("alternate:\n{fmt}\n");
         assert_eq!(
             &fmt,
-            r#"Error: read error
+            r#"read error
   0: failed to read foo.txt
   1: file not found"#
         );
