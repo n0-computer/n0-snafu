@@ -781,9 +781,12 @@
 <a href="#780" id="780">780</a>
 <a href="#781" id="781">781</a>
 <a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a></pre></div><pre class="rust"><code><span class="kw">use </span>color_backtrace::Verbosity;
 <span class="kw">use </span>snafu::{FromString, GenerateImplicitData, Snafu};
-<span class="kw">use </span>tracing_error::SpanTraceStatus;
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+</span><span class="kw">use </span>tracing_error::SpanTraceStatus;
 
 <span class="kw">use </span><span class="kw">crate</span>::SpanTrace;
 
@@ -1073,6 +1076,7 @@
         <span class="macro">write!</span>(f, <span class="string">"{self:#}"</span>)<span class="question-mark">?</span>;
 
         <span class="comment">// Span Trace
+        </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
         </span><span class="kw">if </span><span class="self">self</span>.span_trace().status() == SpanTraceStatus::CAPTURED {
             <span class="macro">writeln!</span>(f, <span class="string">"Span trace:"</span>)<span class="question-mark">?</span>;
             <span class="macro">writeln!</span>(f, <span class="string">"{}\n"</span>, <span class="self">self</span>.span_trace())<span class="question-mark">?</span>;
