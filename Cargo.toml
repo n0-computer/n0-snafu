@@ -17,3 +17,6 @@ btparse = "0.2.0"
 color-backtrace = { version = "0.7.0", features = ["use-btparse-crate"] }
 snafu = { version = "0.8.5", features = ["rust_1_81", "std", "backtraces-impl-backtrace-crate"] }
 tracing-error = "0.2.1"
+
+[dev-dependencies]
+nested_enum_utils = "0.2.2"
