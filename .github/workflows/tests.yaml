@@ -121,7 +121,7 @@ jobs:
 
     - name: upload results
       if: ${{ failure() && inputs.flaky }}
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: libtest_run_${{ github.run_number }}-${{ github.run_attempt }}-${{ matrix.name }}_${{ matrix.features }}_${{ matrix.rust }}.json
         path: output
@@ -220,7 +220,7 @@ jobs:
 
     - name: upload results
       if: ${{ failure() && inputs.flaky }}
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: libtest_run_${{ github.run_number }}-${{ github.run_attempt }}-${{ matrix.name }}_${{ matrix.features }}_${{ matrix.rust }}.json
         path: output
