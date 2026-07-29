@@ -1,5 +1,6 @@
 use color_backtrace::Verbosity;
 use snafu::{FromString, GenerateImplicitData, Snafu};
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_error::SpanTraceStatus;
 
 use crate::SpanTrace;
@@ -290,6 +291,7 @@ impl std::fmt::Debug for Error {
         write!(f, "{self:#}")?;
 
         // Span Trace
+        #[cfg(not(target_arch = "wasm32"))]
         if self.span_trace().status() == SpanTraceStatus::CAPTURED {
             writeln!(f, "Span trace:")?;
             writeln!(f, "{}\n", self.span_trace())?;
